@@ -1,0 +1,37 @@
+#!/usr/bin/make -f
+
+PRG=bam-util
+VER=1.0.11
+BIN_LIST=$$(find $(DEB_DIR)$(PKG_LIB_DIR)/bin/ -executable -type f)
+PKG=$(PRG)$(VER)
+DEB_DIR=debian/$(PKG)
+PKG_LIB_DIR=/usr/lib/$(PKG)
+BIN_WRAPPER=\
+'\#!/bin/sh\n'\
+'export PATH=$(PKG_LIB_DIR)/bin:$$PATH\n'\
+"exec $${BASE_BIN}" '"$$@"'
+
+# otherwise the build step will use -g -O2 instead of what the Makefiles want
+unexport CFLAGS
+
+%:
+	dh $@
+
+override_dh_auto_install:
+	mkdir -p $(DEB_DIR)/usr/bin $(DEB_DIR)$(PKG_LIB_DIR)/bin
+	make install INSTALLDIR="$$(realpath $(DEB_DIR)$(PKG_LIB_DIR)/bin)"
+	for BIN in $(BIN_LIST); do \
+		BASE_BIN=$$(basename $${BIN});\
+		install -m 755 $${BIN} $(DEB_DIR)$(PKG_LIB_DIR)/bin/$${BASE_BIN};\
+		echo $(BIN_WRAPPER) | sed 's/^ *//' > $(DEB_DIR)/usr/bin/$${BASE_BIN}$(VER);\
+	done
+
+override_dh_strip:
+	echo "Do not create a *dbgsym*.ddeb package."
+
+override_dh_auto_clean:
+	echo "Do not execute dh_auto-clean."
+
+override_dh_auto_build:
+	dh_auto_build -- cloneLib
+	dh_auto_build
